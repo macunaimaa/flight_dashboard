@@ -1,125 +1,110 @@
-import { useAuthStore } from "../../store/authStore";
-import { useUIStore } from "../../store/uiStore";
+import { useState } from "react";
 import { useAircraftStore } from "../../store/aircraftStore";
-import type { CSSProperties } from "react";
+import { useUIStore } from "../../store/uiStore";
+import { useAuthStore } from "../../store/authStore";
 
 export function TopBar() {
-  const logout = useAuthStore((s) => s.logout);
-  const tenantId = useAuthStore((s) => s.tenantId);
-  const connectionStatus = useUIStore((s) => s.connectionStatus);
-  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
-  const aircraftCount = useAircraftStore((s) => s.aircraftList.length);
-  const weatherPanelOpen = useUIStore((s) => s.weatherPanelOpen);
-  const newsPanelOpen = useUIStore((s) => s.newsPanelOpen);
-  const toggleWeatherPanel = useUIStore((s) => s.toggleWeatherPanel);
-  const toggleNewsPanel = useUIStore((s) => s.toggleNewsPanel);
+  const aircraft = useAircraftStore(s => s.aircraftList);
+  const select = useAircraftStore(s => s.selectAircraft);
+  const connectionStatus = useUIStore(s => s.connectionStatus);
+  const mapMode = useUIStore(s => s.mapMode);
+  const setMapMode = useUIStore(s => s.setMapMode);
+  const toggleWx = useUIStore(s => s.toggleWeatherPanel);
+  const toggleNews = useUIStore(s => s.toggleNewsPanel);
+  const logout = useAuthStore(s => s.logout);
+  const tenantId = useAuthStore(s => s.tenantId);
 
-  const statusColor =
-    connectionStatus === "connected"
-      ? "#22c55e"
-      : connectionStatus === "connecting"
-        ? "#eab308"
-        : "#ef4444";
+  const [q, setQ] = useState("");
+  const matches = q.trim().length >= 2
+    ? aircraft.filter(a => {
+        const s = q.toLowerCase();
+        return (a.callsign || "").toLowerCase().includes(s)
+          || a.icao24.toLowerCase().includes(s)
+          || (a.originCountry || "").toLowerCase().includes(s);
+      }).slice(0, 8)
+    : [];
+
+  const dot = connectionStatus === "connected" ? "var(--mint)"
+    : connectionStatus === "connecting" ? "var(--amber)" : "var(--red)";
 
   return (
-    <div style={styles.bar}>
-      <div style={styles.left}>
-        <button onClick={toggleSidebar} style={styles.menuBtn}>
-          &#9776;
-        </button>
-        <span style={styles.brand}>Aircraft Dashboard</span>
-        <span style={styles.tenant}>{tenantId}</span>
+    <header style={{
+      height: 52, display: "flex", alignItems: "center", gap: 16, padding: "0 16px",
+      background: "var(--surface-0)", borderBottom: "1px solid var(--line)", position: "relative", zIndex: 20,
+    }}>
+      {/* Brand */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "0 0 auto" }}>
+        <div style={{ width: 28, height: 28, borderRadius: 4, background: "var(--accent)",
+          display: "grid", placeItems: "center", color: "var(--bg)", fontWeight: 800, fontSize: 13 }}>S</div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: 0.6 }}>SKYDECK</div>
+          <div className="sd-mono" style={{ fontSize: 9, color: "var(--text-3)", letterSpacing: 0.4 }}>
+            FLIGHT OPS · {tenantId || "—"}
+          </div>
+        </div>
       </div>
-      <div style={styles.center}>
-        <span style={styles.stat}>{aircraftCount} aircraft tracked</span>
+
+      {/* Search */}
+      <div style={{ flex: 1, maxWidth: 480, position: "relative" }}>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search callsign, ICAO24, country…"
+          style={{
+            width: "100%", background: "var(--surface-1)", border: "1px solid var(--line-2)",
+            color: "var(--text)", padding: "7px 12px", borderRadius: 4, fontSize: 12, outline: "none",
+            fontFamily: "IBM Plex Sans",
+          }} />
+        {matches.length > 0 && (
+          <div style={{
+            position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+            background: "var(--surface-1)", border: "1px solid var(--line-2)", borderRadius: 4,
+            boxShadow: "0 12px 32px rgba(0,0,0,0.5)", overflow: "hidden", zIndex: 30,
+          }}>
+            {matches.map(a => (
+              <div key={a.icao24} onClick={() => { select(a.icao24); setQ(""); }}
+                style={{ padding: "8px 12px", cursor: "pointer", display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--line)" }}>
+                <span className="sd-mono" style={{ color: "var(--text)" }}>{a.callsign || a.icao24}</span>
+                <span className="sd-mono" style={{ color: "var(--text-3)", fontSize: 11 }}>{a.originCountry}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <div style={styles.right}>
-        <button
-          onClick={toggleWeatherPanel}
-          style={weatherPanelOpen ? styles.activeBtn : styles.actionBtn}
-        >
-          Weather
-        </button>
-        <button
-          onClick={toggleNewsPanel}
-          style={newsPanelOpen ? styles.activeBtn : styles.actionBtn}
-        >
-          News
-        </button>
-        <span style={{ ...styles.status, background: statusColor }} />
-        <span style={styles.statusText}>{connectionStatus}</span>
-        <button onClick={logout} style={styles.logoutBtn}>
-          Logout
-        </button>
+
+      {/* Map mode toggle */}
+      <div style={{ display: "flex", border: "1px solid var(--line-2)", borderRadius: 4, overflow: "hidden" }}>
+        {(["cesium","2d"] as const).map(m => {
+          const active = mapMode === m;
+          return (
+            <button key={m} onClick={() => setMapMode(m)} className="sd-mono" style={{
+              padding: "6px 12px", fontSize: 10.5, fontWeight: 600, letterSpacing: 0.5,
+              background: active ? "var(--surface-3)" : "transparent",
+              color: active ? "var(--accent)" : "var(--text-3)",
+              border: "none", cursor: "pointer",
+            }}>{m === "cesium" ? "3D" : "RADAR"}</button>
+          );
+        })}
       </div>
-    </div>
+
+      {/* Status pill */}
+      <div className="sd-mono" style={{
+        display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
+        border: "1px solid var(--line-2)", borderRadius: 4, fontSize: 10.5, color: "var(--text-2)",
+      }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: dot }} className={connectionStatus === "connected" ? "sd-blink" : ""} />
+        {connectionStatus.toUpperCase()} · {aircraft.length} CONTACTS
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={toggleWx} className="sd-mono" style={btnStyle}>WX</button>
+        <button onClick={toggleNews} className="sd-mono" style={btnStyle}>NEWS</button>
+        <button onClick={logout} className="sd-mono" style={{ ...btnStyle, color: "var(--text-3)" }}>↪</button>
+      </div>
+    </header>
   );
 }
 
-const styles: Record<string, CSSProperties> = {
-  bar: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    height: 48,
-    background: "#111827",
-    borderBottom: "1px solid #1f2937",
-    padding: "0 16px",
-    zIndex: 100,
-    position: "relative",
-  },
-  left: { display: "flex", alignItems: "center", gap: 12 },
-  center: { display: "flex", alignItems: "center" },
-  right: { display: "flex", alignItems: "center", gap: 10 },
-  menuBtn: {
-    background: "none",
-    border: "none",
-    color: "#9ca3af",
-    fontSize: 18,
-    cursor: "pointer",
-    padding: "4px 8px",
-  },
-  brand: { color: "#e0e6ed", fontWeight: 700, fontSize: 14 },
-  tenant: {
-    color: "#6b7280",
-    fontSize: 12,
-    background: "#1f2937",
-    padding: "2px 8px",
-    borderRadius: 4,
-  },
-  stat: { color: "#9ca3af", fontSize: 13 },
-  status: {
-    width: 8,
-    height: 8,
-    borderRadius: "50%",
-    display: "inline-block",
-  },
-  statusText: { color: "#9ca3af", fontSize: 12 },
-  actionBtn: {
-    background: "none",
-    border: "1px solid #374151",
-    color: "#9ca3af",
-    borderRadius: 4,
-    padding: "4px 12px",
-    fontSize: 12,
-    cursor: "pointer",
-  },
-  activeBtn: {
-    background: "#2563eb33",
-    border: "1px solid #2563eb",
-    color: "#93c5fd",
-    borderRadius: 4,
-    padding: "4px 12px",
-    fontSize: 12,
-    cursor: "pointer",
-  },
-  logoutBtn: {
-    background: "none",
-    border: "1px solid #374151",
-    color: "#9ca3af",
-    borderRadius: 4,
-    padding: "4px 12px",
-    fontSize: 12,
-    cursor: "pointer",
-  },
+const btnStyle: React.CSSProperties = {
+  background: "var(--surface-1)", border: "1px solid var(--line-2)",
+  color: "var(--text-2)", padding: "6px 12px", borderRadius: 4,
+  fontSize: 10.5, fontWeight: 600, letterSpacing: 0.5, cursor: "pointer",
 };

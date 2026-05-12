@@ -1,28 +1,33 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { TopBar } from "./TopBar";
-import { Sidebar } from "./Sidebar";
-import { CesiumGlobe } from "../../cesium/CesiumViewer";
+import { AircraftList } from "../aircraft/AircraftList";
 import { AircraftInfoPanel } from "../aircraft/AircraftInfoPanel";
+import { KPIStrip } from "../dashboard/KPIStrip";
+import { EventTicker } from "../dashboard/EventTicker";
+import { Map2D } from "../map2d/Map2D";
+import { CesiumGlobe } from "../../cesium/CesiumViewer";
 import { WeatherPanel } from "../weather/WeatherPanel";
 import { NewsPanel } from "../news/NewsPanel";
-import { useWebSocket } from "../../hooks/useWebSocket";
 import { useUIStore } from "../../store/uiStore";
 import { useAircraftStore } from "../../store/aircraftStore";
+import { useWebSocket } from "../../hooks/useWebSocket";
 
 export function AppShell() {
   useWebSocket();
 
-  const weatherPanelOpen = useUIStore((s) => s.weatherPanelOpen);
-  const newsPanelOpen = useUIStore((s) => s.newsPanelOpen);
-  const toggleWeatherPanel = useUIStore((s) => s.toggleWeatherPanel);
-  const toggleNewsPanel = useUIStore((s) => s.toggleNewsPanel);
-  const selectedIcao24 = useAircraftStore((s) => s.selectedIcao24);
-  const aircraft = useAircraftStore((s) => s.aircraft);
+  const mapMode = useUIStore(s => s.mapMode);
+  const wxOpen = useUIStore(s => s.weatherPanelOpen);
+  const newsOpen = useUIStore(s => s.newsPanelOpen);
+  const toggleWx = useUIStore(s => s.toggleWeatherPanel);
+  const toggleNews = useUIStore(s => s.toggleNewsPanel);
+  const aircraft = useAircraftStore(s => s.aircraftList);
+  const selectedIcao24 = useAircraftStore(s => s.selectedIcao24);
+  const aircraftMap = useAircraftStore(s => s.aircraft);
 
-  const viewportCenterRef = useRef({ lat: 0, lon: 0 });
+  const viewportCenterRef = useRef<{ lat: number; lon: number }>({ lat: 0, lon: 0 });
 
   if (selectedIcao24) {
-    const selected = aircraft.get(selectedIcao24);
+    const selected = aircraftMap.get(selectedIcao24);
     if (selected) {
       viewportCenterRef.current = {
         lon: selected.location.coordinates[0],
@@ -31,47 +36,60 @@ export function AppShell() {
     }
   }
 
+  // Mobile detection
+  useEffect(() => {
+    const update = () => document.documentElement.dataset.skydeckSize =
+      window.innerWidth < 760 ? "mobile" : "desktop";
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   return (
-    <div style={styles.shell}>
+    <div style={{
+      display: "grid",
+      gridTemplateRows: "auto auto 1fr auto",
+      height: "100vh",
+      background: "var(--bg)",
+      color: "var(--text)",
+    }}>
       <TopBar />
-      <div style={styles.content}>
-        <Sidebar />
-        <div style={styles.globe}>
-          <CesiumGlobe />
-          <AircraftInfoPanel />
-          {weatherPanelOpen && (
+      <KPIStrip aircraft={aircraft} />
+      <main style={{ display: "grid", gridTemplateColumns: "300px 1fr 360px", minHeight: 0, position: "relative" }}
+        className="sd-main">
+        <AircraftList />
+        <section style={{ position: "relative", background: "var(--bg)" }}>
+          {mapMode === "cesium" ? <CesiumGlobe /> : <Map2D />}
+          {wxOpen && (
             <WeatherPanel
               lat={viewportCenterRef.current.lat}
               lon={viewportCenterRef.current.lon}
-              onClose={toggleWeatherPanel}
+              onClose={toggleWx}
             />
           )}
-          {newsPanelOpen && (
-            <NewsPanel onClose={toggleNewsPanel} />
-          )}
-        </div>
-      </div>
+          {newsOpen && <NewsPanel onClose={toggleNews} />}
+        </section>
+        <AircraftInfoPanel />
+      </main>
+      <EventTicker aircraft={aircraft} />
+
+      {/* Mobile layout overrides */}
+      <style>{`
+        @media (max-width: 760px) {
+          .sd-main { grid-template-columns: 1fr !important; }
+          .sd-main > aside:first-child {
+            position: fixed; left: 0; top: 0; bottom: 0; width: 84vw; max-width: 320px;
+            z-index: 40; transform: translateX(-100%); transition: transform .2s ease;
+          }
+          .sd-main > aside:first-child[data-open="true"] { transform: translateX(0); }
+          .sd-main > aside:last-child {
+            position: fixed; left: 0; right: 0; bottom: 32px;
+            width: 100%; max-height: 60vh; border-left: none;
+            border-top: 1px solid var(--line); z-index: 30;
+            border-top-left-radius: 12px; border-top-right-radius: 12px;
+          }
+        }
+      `}</style>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  shell: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100vh",
-    width: "100vw",
-    overflow: "hidden",
-    background: "#0a0e17",
-  },
-  content: {
-    display: "flex",
-    flex: 1,
-    overflow: "hidden",
-  },
-  globe: {
-    flex: 1,
-    position: "relative",
-    overflow: "hidden",
-  },
-};
