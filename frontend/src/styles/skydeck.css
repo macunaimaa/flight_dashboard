@@ -1,0 +1,61 @@
+/* SKYDECK design tokens, animations, and reset.
+   Loaded once from main.tsx — provides CSS variables consumed by all
+   components in components/dashboard/, layout/, and aircraft/. */
+
+:root {
+  /* surfaces */
+  --bg:        #0a0e15;
+  --surface-0: #0d1320;
+  --surface-1: #121927;
+  --surface-2: #182234;
+  --surface-3: #1f2c42;
+  --line:      #1c2538;
+  --line-2:    #25324a;
+  /* text */
+  --text:      #e6eaf2;
+  --text-2:    #a4b0c4;
+  --text-3:    #6c7a93;
+  --text-4:    #4a576e;
+  /* accents — oklch matched chroma & lightness */
+  --amber:     oklch(78% 0.14 70);
+  --amber-d:   oklch(58% 0.14 70);
+  --cyan:      oklch(78% 0.14 220);
+  --cyan-d:    oklch(58% 0.14 220);
+  --mint:      oklch(78% 0.14 160);
+  --mint-d:    oklch(58% 0.14 160);
+  --red:       oklch(70% 0.20 25);
+
+  --accent:    var(--amber);
+  --accent-d:  var(--amber-d);
+}
+
+body {
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+}
+
+.sd-mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 4px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes sd-blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.sd-blink { animation: sd-blink 1.6s ease-in-out infinite; }
+
+@keyframes sd-sweep { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.sd-sweep { animation: sd-sweep 8s linear infinite; transform-origin: center; }
+
+@keyframes sd-ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.sd-ticker-track { animation: sd-ticker 60s linear infinite; }
+
+@keyframes sd-pulse { 0% { transform: scale(.9); opacity: .9; } 100% { transform: scale(2.4); opacity: 0; } }
+.sd-pulse { animation: sd-pulse 2s ease-out infinite; transform-origin: center; }
